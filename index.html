@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Countdown</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Orbitron:700&subset=latin&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: #10141d;
+    font-family: 'Open Sans', sans-serif;
+    color: #fff;
+    user-select: none;
+  }
+
+  #stage {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+  }
+
+  #clock {
+    font-family: Orbitron, sans-serif;
+    font-size: 200px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transform-origin: center center;
+    transition: color .3s;
+  }
+  #clock.critical {
+    color: #ff0101;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .45; }
+  }
+
+  #controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #timeInputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: opacity .3s;
+  }
+  #timeInputs.locked { opacity: .3; pointer-events: none; }
+
+  #timeInputs label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .18em;
+    color: #A0AEC0;
+  }
+  #timeInputs input {
+    width: 80px;
+    padding: 12px 0;
+    text-align: center;
+    font-family: Orbitron, sans-serif;
+    font-size: 22px;
+    color: #fff;
+    background: #1A202C;
+    border: 1px solid #4A5568;
+    border-radius: 4px;
+    outline: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  #timeInputs input::-webkit-inner-spin-button,
+  #timeInputs input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  #timeInputs input:focus { border-color: #3182CE; }
+
+  .sep {
+    font-family: Orbitron, sans-serif;
+    font-size: 24px;
+    color: #4A5568;
+    padding-top: 20px;
+  }
+
+  #buttons { display: flex; gap: 12px; }
+  button {
+    min-width: 140px;
+    padding: 14px 28px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:active { transform: scale(.97); }
+
+  #startBtn {
+    background: transparent;
+    border: 1px solid #ffffff;
+    color: #fff;
+  }
+  #startBtn:hover { background: #798180ac; border-color: #ffffff; }
+  #startBtn.running { background: transparent; border-color: #ff0000; }
+  #startBtn.running:hover { background: #867e85; border-color: #ff0000; }
+
+  #resetBtn {
+    background: transparent;
+    border: 1px solid #ffffff;
+    color: #fff;
+  }
+  #resetBtn:hover { border-color: #A0AEC0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="clock">00:01:00</div>
+
+  <div id="controls">
+    <div id="timeInputs">
+      <label>TUNNIT<input id="inH" type="number" min="0" max="99" value="0"></label>
+      <span class="sep">:</span>
+      <label>MINUUTIT<input id="inM" type="number" min="0" max="59" value="1"></label>
+      <span class="sep">:</span>
+      <label>SEKUNNIT<input id="inS" type="number" min="0" max="59" value="0"></label>
+    </div>
+    <div id="buttons">
+      <button id="startBtn">Aloita</button>
+      <button id="resetBtn">Nollaa</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const clockEl    = document.getElementById('clock');
+  const startBtn   = document.getElementById('startBtn');
+  const resetBtn   = document.getElementById('resetBtn');
+  const inH        = document.getElementById('inH');
+  const inM        = document.getElementById('inM');
+  const inS        = document.getElementById('inS');
+  const timeInputs = document.getElementById('timeInputs');
+
+  let remainingMs = 60000;
+  let deadline = 0;
+  let running = false;
+
+  function clamp(el, max) {
+    let v = parseInt(el.value, 10);
+    if (isNaN(v) || v < 0) v = 0;
+    if (v > max) v = max;
+    el.value = v;
+    return v;
+  }
+
+  function readMs() {
+    return ((clamp(inH,99)*3600) + (clamp(inM,59)*60) + clamp(inS,59)) * 1000;
+  }
+
+  function fmt(ms) {
+    const t = Math.max(0, Math.ceil(ms / 1000));
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(Math.floor(t/3600))}:${pad(Math.floor((t%3600)/60))}:${pad(t%60)}`;
+  }
+
+  function fitClock() {
+    clockEl.style.transform = 'scale(1)';
+    const rect = clockEl.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const scaleW = (window.innerWidth  * 0.90) / rect.width;
+    const scaleH = (window.innerHeight * 0.55) / rect.height;
+    const scale  = Math.min(scaleW, scaleH);
+    clockEl.style.transform = 'scale(' + scale + ')';
+  }
+
+  function render() {
+    clockEl.textContent = fmt(remainingMs);
+    clockEl.classList.toggle('critical', running && remainingMs <= 10000 && remainingMs > 0);
+  }
+
+  function tick() {
+    if (running) {
+      remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) { remainingMs = 0; running = false; onFinish(); }
+      render();
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function onFinish() {
+    startBtn.textContent = 'Aloita';
+    startBtn.classList.remove('running');
+    timeInputs.classList.remove('locked');
+  }
+
+  function startPause() {
+    if (running) {
+      remainingMs = Math.max(0, deadline - Date.now());
+      running = false;
+      startBtn.textContent = 'Jatka';
+      startBtn.classList.remove('running');
+      timeInputs.classList.remove('locked');
+    } else {
+      if (remainingMs <= 0) remainingMs = readMs();
+      if (remainingMs <= 0) return;
+      deadline = Date.now() + remainingMs;
+      running = true;
+      startBtn.textContent = 'Tauko';
+      startBtn.classList.add('running');
+      timeInputs.classList.add('locked');
+    }
+    render();
+  }
+
+  function reset() {
+    running = false;
+    remainingMs = readMs();
+    startBtn.textContent = 'Aloita';
+    startBtn.classList.remove('running');
+    timeInputs.classList.remove('locked');
+    clockEl.classList.remove('critical');
+    render();
+  }
+
+  [inH, inM, inS].forEach(el => el.addEventListener('input', () => {
+    if (!running) { remainingMs = readMs(); render(); }
+  }));
+
+  startBtn.addEventListener('click', startPause);
+  resetBtn.addEventListener('click', reset);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+      e.preventDefault(); startPause();
+    }
+  });
+
+  render();
+  fitClock();
+  window.addEventListener('resize', fitClock);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitClock);
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
