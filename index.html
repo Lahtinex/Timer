@@ -28,12 +28,11 @@
 
   #clock {
     font-family: Orbitron, sans-serif;
-    font-size: 200px;
+    font-size: 100px;
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
-    transform-origin: center center;
     transition: color .3s;
   }
   #clock.critical {
@@ -177,14 +176,14 @@
     return `${pad(Math.floor(t/3600))}:${pad(Math.floor((t%3600)/60))}:${pad(t%60)}`;
   }
 
+  const BASE_FONT = 100;
   function fitClock() {
-    clockEl.style.transform = 'scale(1)';
+    clockEl.style.fontSize = BASE_FONT + 'px';
     const rect = clockEl.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    const scaleW = (window.innerWidth  * 0.90) / rect.width;
-    const scaleH = (window.innerHeight * 0.55) / rect.height;
-    const scale  = Math.min(scaleW, scaleH);
-    clockEl.style.transform = 'scale(' + scale + ')';
+    const ratioW = (window.innerWidth  * 0.90) / rect.width;
+    const ratioH = (window.innerHeight * 0.55) / rect.height;
+    clockEl.style.fontSize = (BASE_FONT * Math.min(ratioW, ratioH)) + 'px';
   }
 
   function render() {
